@@ -364,7 +364,10 @@ file(GLOB TESTS_OBJECTS_UTILS_SRC   src/tests/ec_utils.c)
 
 set(LIBARITH_SRC            ${FP_SRC} ${NN_SRC} ${UTILS_ARITH_SRC})
 set(LIBEC_SRC               ${LIBARITH_SRC} ${CURVES_SRC} ${UTILS_EC_SRC})
-set(LIBSIGN_SRC             ${LIBEC_SRC} ${HASH_SRC} ${SIG_SRC} ${KEY_SRC} ${UTILS_SIGN_SRC} ${ECDH_SRC})
+# The signing/ECDH library itself calls get_random() through the NN, EC and
+# Montgomery helpers.  Keep the configured external entropy implementation in
+# the archive so consumers do not carry an unresolved random symbol.
+set(LIBSIGN_SRC             ${LIBEC_SRC} ${HASH_SRC} ${SIG_SRC} ${KEY_SRC} ${UTILS_SIGN_SRC} ${ECDH_SRC} ${EXT_DEPS_SRC})
 
 set(EC_SELF_TESTS_SRC       ${TESTS_OBJECTS_CORE_SRC} ${TESTS_OBJECTS_SELF_SRC} ${EXT_DEPS_SRC})
 set(EC_UTILS_SRC            ${TESTS_OBJECTS_CORE_SRC} ${TESTS_OBJECTS_UTILS_SRC} ${EXT_DEPS_SRC})

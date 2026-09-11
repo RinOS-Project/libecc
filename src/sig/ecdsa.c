@@ -21,6 +21,7 @@
 #include <libecc/nn/nn_logical.h>
 
 #include <libecc/sig/sig_algs_internal.h>
+#include <libecc/sig/sig_algs.h>
 #include <libecc/sig/ec_key.h>
 #include <libecc/utils/utils.h>
 #ifdef VERBOSE_INNER_VALUES
@@ -54,6 +55,25 @@ int _ecdsa_sign_finalize(struct ec_sign_context *ctx, u8 *sig, u8 siglen)
 	return __ecdsa_sign_finalize(ctx, sig, siglen, ECDSA);
 }
 
+int ecdsa_sign_digest(u8 *sig, u8 siglen, const ec_key_pair *key_pair,
+			      const u8 *digest, u8 digest_len,
+			      hash_alg_type hash_type)
+{
+	struct ec_sign_context ctx;
+	int ret;
+
+	if ((digest == NULL) || (digest_len == 0)) {
+		return -1;
+	}
+	ret = ec_sign_init(&ctx, key_pair, ECDSA, hash_type, NULL, 0); EG(ret, err);
+	ret = __ecdsa_sign_finalize_digest(&ctx, sig, siglen, digest, digest_len,
+					     ECDSA);
+
+err:
+	IGNORE_RET_VAL(local_memset(&ctx, 0, sizeof(ctx)));
+	return ret;
+}
+
 int _ecdsa_verify_init(struct ec_verify_context *ctx, const u8 *sig, u8 siglen)
 {
 	return __ecdsa_verify_init(ctx, sig, siglen, ECDSA);
@@ -68,6 +88,24 @@ int _ecdsa_verify_update(struct ec_verify_context *ctx,
 int _ecdsa_verify_finalize(struct ec_verify_context *ctx)
 {
 	return __ecdsa_verify_finalize(ctx, ECDSA);
+}
+
+int ecdsa_verify_digest(const u8 *sig, u8 siglen, const ec_pub_key *pub_key,
+				const u8 *digest, u8 digest_len,
+				hash_alg_type hash_type)
+{
+	struct ec_verify_context ctx;
+	int ret;
+
+	if ((digest == NULL) || (digest_len == 0)) {
+		return -1;
+	}
+	ret = ec_verify_init(&ctx, pub_key, sig, siglen, ECDSA, hash_type, NULL, 0); EG(ret, err);
+	ret = __ecdsa_verify_finalize_digest(&ctx, digest, digest_len, ECDSA);
+
+err:
+	IGNORE_RET_VAL(local_memset(&ctx, 0, sizeof(ctx)));
+	return ret;
 }
 
 int ecdsa_public_key_from_sig(ec_pub_key *out_pub1, ec_pub_key *out_pub2, const ec_params *params,

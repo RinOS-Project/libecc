@@ -315,8 +315,9 @@ err:
 	return ret;
 }
 
-int __ecdsa_sign_finalize(struct ec_sign_context *ctx, u8 *sig, u8 siglen,
-			  ec_alg_type key_type)
+static int ecdsa_sign_finalize_common(struct ec_sign_context *ctx, u8 *sig,
+				      u8 siglen, const u8 *digest,
+				      u8 digest_len, ec_alg_type key_type)
 {
 	int ret, iszero, cmp;
 	const ec_priv_key *priv_key;
@@ -384,11 +385,17 @@ int __ecdsa_sign_finalize(struct ec_sign_context *ctx, u8 *sig, u8 siglen,
 	/* Check given signature buffer length has the expected size */
 	MUST_HAVE((siglen == ECDSA_SIGLEN(q_bit_len)), ret, err);
 
-	/* 1. Compute h = H(m) */
+	/* 1. Compute h = H(m), or consume a digest whose declared hash mapping
+	 * exactly matches this initialized context. */
 	ret = local_memset(hash, 0, hsize); EG(ret, err);
-	/* Since we call a callback, sanity check our mapping */
-	ret = hash_mapping_callbacks_sanity_check(ctx->h); EG(ret, err);
-	ret = ctx->h->hfunc_finalize(&(ctx->sign_data.ecdsa.h_ctx), hash); EG(ret, err);
+	if (digest != NULL) {
+		MUST_HAVE((digest_len == hsize), ret, err);
+		ret = local_memcpy(hash, digest, hsize); EG(ret, err);
+	} else {
+		/* Since we call a callback, sanity check our mapping */
+		ret = hash_mapping_callbacks_sanity_check(ctx->h); EG(ret, err);
+		ret = ctx->h->hfunc_finalize(&(ctx->sign_data.ecdsa.h_ctx), hash); EG(ret, err);
+	}
 	dbg_buf_print("h", hash, hsize);
 
 	/*
@@ -596,6 +603,20 @@ err:
 	return ret;
 }
 
+int __ecdsa_sign_finalize(struct ec_sign_context *ctx, u8 *sig, u8 siglen,
+			  ec_alg_type key_type)
+{
+	return ecdsa_sign_finalize_common(ctx, sig, siglen, NULL, 0, key_type);
+}
+
+int __ecdsa_sign_finalize_digest(struct ec_sign_context *ctx, u8 *sig,
+				  u8 siglen, const u8 *digest,
+				  u8 digest_len, ec_alg_type key_type)
+{
+	return ecdsa_sign_finalize_common(ctx, sig, siglen, digest, digest_len,
+					  key_type);
+}
+
 /*
  * Generic *internal* ECDSA verification functions (init, update and finalize).
  * Their purpose is to allow passing a specific hash function (along with
@@ -710,8 +731,9 @@ err:
 	return ret;
 }
 
-int __ecdsa_verify_finalize(struct ec_verify_context *ctx,
-			    ec_alg_type key_type)
+static int ecdsa_verify_finalize_common(struct ec_verify_context *ctx,
+					const u8 *digest, u8 digest_len,
+					ec_alg_type key_type)
 {
 	prj_pt uG, vY;
 	prj_pt_t W_prime;
@@ -753,10 +775,16 @@ int __ecdsa_verify_finalize(struct ec_verify_context *ctx,
 	r = &(ctx->verify_data.ecdsa.r);
 	s = &(ctx->verify_data.ecdsa.s);
 
-	/* 2. Compute h = H(m) */
-	/* Since we call a callback, sanity check our mapping */
-	ret = hash_mapping_callbacks_sanity_check(ctx->h); EG(ret, err);
-	ret = ctx->h->hfunc_finalize(&(ctx->verify_data.ecdsa.h_ctx), hash); EG(ret, err);
+	/* 2. Compute h = H(m), or consume a digest whose declared hash mapping
+	 * exactly matches this initialized context. */
+	if (digest != NULL) {
+		MUST_HAVE((digest_len == hsize), ret, err);
+		ret = local_memcpy(hash, digest, hsize); EG(ret, err);
+	} else {
+		/* Since we call a callback, sanity check our mapping */
+		ret = hash_mapping_callbacks_sanity_check(ctx->h); EG(ret, err);
+		ret = ctx->h->hfunc_finalize(&(ctx->verify_data.ecdsa.h_ctx), hash); EG(ret, err);
+	}
 	dbg_buf_print("h = H(m)", hash, hsize);
 
 	/*
@@ -848,6 +876,19 @@ int __ecdsa_verify_finalize(struct ec_verify_context *ctx,
 	VAR_ZEROIFY(hsize);
 
 	return ret;
+}
+
+int __ecdsa_verify_finalize(struct ec_verify_context *ctx,
+			    ec_alg_type key_type)
+{
+	return ecdsa_verify_finalize_common(ctx, NULL, 0, key_type);
+}
+
+int __ecdsa_verify_finalize_digest(struct ec_verify_context *ctx,
+				    const u8 *digest, u8 digest_len,
+				    ec_alg_type key_type)
+{
+	return ecdsa_verify_finalize_common(ctx, digest, digest_len, key_type);
 }
 
 /* Public key recovery from a signature.

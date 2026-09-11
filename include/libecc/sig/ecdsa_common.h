@@ -63,6 +63,17 @@ ATTRIBUTE_WARN_UNUSED_RET int __ecdsa_sign_update(struct ec_sign_context *ctx,
 
 ATTRIBUTE_WARN_UNUSED_RET int __ecdsa_sign_finalize(struct ec_sign_context *ctx, u8 *sig, u8 siglen, ec_alg_type key_type);
 
+/* Complete an already initialized ECDSA operation from a caller-supplied
+ * digest. This is intentionally separate from the streaming API: callers
+ * must have selected the same hash mapping used to initialize ctx, and the
+ * digest length is checked against that mapping before the ECDSA reduction.
+ */
+ATTRIBUTE_WARN_UNUSED_RET int __ecdsa_sign_finalize_digest(struct ec_sign_context *ctx,
+                                                            u8 *sig, u8 siglen,
+                                                            const u8 *digest,
+                                                            u8 digest_len,
+                                                            ec_alg_type key_type);
+
 typedef struct {
 	nn r;
 	nn s;
@@ -79,6 +90,13 @@ ATTRIBUTE_WARN_UNUSED_RET int __ecdsa_verify_update(struct ec_verify_context *ct
 			 const u8 *chunk, u32 chunklen, ec_alg_type key_type);
 
 ATTRIBUTE_WARN_UNUSED_RET int __ecdsa_verify_finalize(struct ec_verify_context *ctx, ec_alg_type key_type);
+
+/* Verify an already initialized ECDSA operation against a supplied digest.
+ * See __ecdsa_sign_finalize_digest() for the hash-mapping contract. */
+ATTRIBUTE_WARN_UNUSED_RET int __ecdsa_verify_finalize_digest(struct ec_verify_context *ctx,
+                                                              const u8 *digest,
+                                                              u8 digest_len,
+                                                              ec_alg_type key_type);
 
 ATTRIBUTE_WARN_UNUSED_RET int __ecdsa_public_key_from_sig(ec_pub_key *out_pub1, ec_pub_key *out_pub2, const ec_params *params,
                                 const u8 *sig, u8 siglen, const u8 *hash, u8 hsize,

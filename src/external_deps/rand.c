@@ -15,8 +15,19 @@
  */
 #include <libecc/external_deps/rand.h>
 
+/* RinOS owns entropy at the rintls boundary.  Do not open a second device or
+ * silently select a platform PRNG from inside libecc: callers must receive a
+ * hard failure when the kernel CSPRNG is unavailable. */
+#if defined(RINTLS_USE_PLATFORM_RANDOM)
+extern int rintls_libecc_get_random(unsigned char *buf, u16 len);
+
+int get_random(unsigned char *buf, u16 len)
+{
+	return rintls_libecc_get_random(buf, len);
+}
+
 /* Unix and compatible case (including macOS) */
-#if defined(WITH_STDLIB) && (defined(__unix__) || defined(__APPLE__))
+#elif defined(WITH_STDLIB) && (defined(__unix__) || defined(__APPLE__))
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
