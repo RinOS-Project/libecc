@@ -27,7 +27,12 @@ void nn_print(const char *msg, nn_src_t a)
 		   a->wlen * WORD_BYTES * 8);
 
 	for (w = a->wlen - 1; w >= 0; w--) {
+#if WORD_BYTES == 8
+		ext_printf(PRINTF_WORD_HEX_FMT,
+			   (unsigned long long)a->val[w]);
+#else
 		ext_printf(PRINTF_WORD_HEX_FMT, a->val[w]);
+#endif
 	}
 
 	ext_printf("\n");
